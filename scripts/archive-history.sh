@@ -48,12 +48,17 @@ download_snapshots() {
 
   [ "${#got[@]}" -gt 0 ] || { err "No packages captured for ${req_ts}."; fail_exit 1; }
 
-  # Most snapshots are a single release; if closest snapshots span versions,
-  # keep the most common version and drop the rest.
-  local target
-  target="$(printf '%s\n' "${gotver[@]}" | grep -vE '^$' | sort | uniq -c | sort -rn | awk 'NR==1{print $2}')"
+  # Use the version of the first downloaded file (download order follows
+  # PKG_SUFFIXES, i.e. x86_64.deb first); skip leading entries whose version
+  # could not be parsed. Files of any other version are dropped below.
+  local target=""
+  i=0
+  for suffix in "${got[@]}"; do
+    if [ -n "${gotver[$i]}" ]; then target="${gotver[$i]}"; break; fi
+    i=$(( i + 1 ))
+  done
   [ -n "${target}" ] || { err "Could not determine a version from the snapshots."; fail_exit 1; }
-  info "Target version: ${target}"
+  info "Target version (from first download): ${target}"
 
   PRESENT_SUFFIXES=()
   i=0
