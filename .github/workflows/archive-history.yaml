@@ -1,0 +1,45 @@
+name: Archive Historical Wechat Linux Version
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: "Snapshot timestamp from web.archive.org, e.g. 20241106060201"
+        required: true
+        type: string
+      publish:
+        description: "Create the GitHub release (set false for local `act` testing)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write # needed to create the release
+
+concurrency:
+  group: archive-wechat-linux # share the lane with the live archive workflow
+  cancel-in-progress: false
+
+jobs:
+  archive_history:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch snapshot, verify, rename & checksum
+        id: prepare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash ./scripts/archive-history.sh "${{ inputs.snapshot }}"
+
+      - name: Publish release
+        if: steps.prepare.outputs.skip != 'true' && inputs.publish != false
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.prepare.outputs.tag }}
+          name: WeChat Linux ${{ steps.prepare.outputs.version }}
+          body_path: dist/RELEASE_NOTES.md
+          fail_on_unmatched_files: true
+          files: |
+            dist/WeChatLinux_*
